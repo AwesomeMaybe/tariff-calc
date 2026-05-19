@@ -1,0 +1,93 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 220 20% 97%;
+    --foreground: 222 47% 11%;
+    --card: 0 0% 100%;
+    --card-foreground: 222 47% 11%;
+    --primary: 221 83% 53%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 210 40% 96%;
+    --secondary-foreground: 222 47% 11%;
+    --muted: 210 30% 95%;
+    --muted-foreground: 215 16% 50%;
+    --accent: 210 40% 96%;
+    --accent-foreground: 222 47% 11%;
+    --border: 214 32% 88%;
+    --input: 214 32% 88%;
+    --ring: 221 83% 53%;
+    --radius: 0.875rem;
+
+    --sidebar-bg: 222 47% 9%;
+    --sidebar-fg: 220 15% 72%;
+    --sidebar-active: 221 83% 53%;
+  }
+}
+
+@layer base {
+  * { @apply border-border; box-sizing: border-box; }
+  body { @apply bg-background text-foreground; font-feature-settings: "cv11", "ss01"; }
+}
+
+/* Gradients */
+.grad-blue    { background: linear-gradient(135deg, #1e40af 0%, #3b82f6 100%); }
+.grad-indigo  { background: linear-gradient(135deg, #4338ca 0%, #818cf8 100%); }
+.grad-emerald { background: linear-gradient(135deg, #047857 0%, #34d399 100%); }
+.grad-amber   { background: linear-gradient(135deg, #b45309 0%, #fbbf24 100%); }
+.grad-rose    { background: linear-gradient(135deg, #be123c 0%, #fb7185 100%); }
+.grad-violet  { background: linear-gradient(135deg, #6d28d9 0%, #a78bfa 100%); }
+.grad-cyan    { background: linear-gradient(135deg, #0e7490 0%, #22d3ee 100%); }
+.grad-hero    { background: linear-gradient(135deg, #0f172a 0%, #1e3a5f 50%, #1e40af 100%); }
+
+/* Sidebar */
+.sidebar-link {
+  display: flex; align-items: center; gap: 10px;
+  padding: 9px 14px; border-radius: 10px;
+  font-size: 13.5px; font-weight: 500;
+  color: hsl(var(--sidebar-fg));
+  transition: background 0.15s, color 0.15s;
+  cursor: pointer;
+}
+.sidebar-link:hover  { background: rgba(255,255,255,.07); color: #fff; }
+.sidebar-link.active { background: hsl(var(--sidebar-active)); color: #fff; box-shadow: 0 2px 12px rgba(59,130,246,.35); }
+
+/* Section accent colors */
+.accent-blue   { --ac: #3b82f6; }
+.accent-indigo { --ac: #6366f1; }
+.accent-violet { --ac: #8b5cf6; }
+.accent-purple { --ac: #a855f7; }
+.accent-rose   { --ac: #f43f5e; }
+.accent-orange { --ac: #f97316; }
+.accent-amber  { --ac: #f59e0b; }
+.accent-yellow { --ac: #eab308; }
+.accent-lime   { --ac: #84cc16; }
+.accent-green  { --ac: #22c55e; }
+.accent-emerald{ --ac: #10b981; }
+.accent-teal   { --ac: #14b8a6; }
+.accent-cyan   { --ac: #06b6d4; }
+.accent-sky    { --ac: #0ea5e9; }
+.accent-slate  { --ac: #64748b; }
+.accent-pink   { --ac: #ec4899; }
+.accent-fuchsia{ --ac: #d946ef; }
+.accent-red    { --ac: #ef4444; }
+.accent-stone  { --ac: #78716c; }
+
+/* Spin animations */
+@keyframes fade-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+.fade-in { animation: fade-in .25s ease both; }
+
+/* Number input cleanup */
+input[type=number]::-webkit-inner-spin-button,
+input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; }
+input[type=number] { -moz-appearance: textfield; }
+
+/* Glass card */
+.glass {
+  background: rgba(255,255,255,.7);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255,255,255,.5);
+}
