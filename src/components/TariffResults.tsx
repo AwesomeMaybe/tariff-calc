@@ -2,16 +2,14 @@
 import { TrendingUp } from "lucide-react";
 import { fmt, fmtRub } from "@/lib/calculate";
 import type { CalcOutput } from "@/types/tariff";
-
-const SECTION_COLORS = [
-  "#3b82f6","#6366f1","#8b5cf6","#a855f7","#f43f5e",
-  "#f97316","#f59e0b","#eab308","#84cc16","#22c55e",
-  "#10b981","#14b8a6","#06b6d4","#0ea5e9","#64748b",
-  "#ec4899","#d946ef","#ef4444","#78716c",
-];
+import { SECTION_PALETTE as SECTION_COLORS } from "@/lib/colors";
 
 export function TariffResults({ output }: { output: CalcOutput }) {
-  const { results, totalArea, grandTotalMonthly, grandTariffFinal, grandTariffBase } = output;
+  const { results, totalArea, grandTotalMonthly, grandTariffFinal, grandTariffBase, indexProjection } = output;
+  const idxRatio = indexProjection?.length > 1 && indexProjection[0].tariff > 0
+    ? indexProjection[1].tariff / indexProjection[0].tariff
+    : 1;
+  const idxPct = (idxRatio - 1) * 100;
   const maxMonthly = Math.max(...results.map((r) => r.totalMonthly), 1);
   const nonZero = results.filter((r) => r.totalMonthly > 0);
 
@@ -33,6 +31,38 @@ export function TariffResults({ output }: { output: CalcOutput }) {
           </div>
         ))}
       </div>
+
+      {/* Индексация тарифа */}
+      {indexProjection?.length > 1 && idxRatio !== 1 && (
+        <div className="bg-card border border-border/60 rounded-2xl p-5 shadow-sm">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <TrendingUp className="h-4 w-4 text-primary" />
+              <p className="text-sm font-semibold">Индексация тарифа</p>
+            </div>
+            <span className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-primary/10 text-primary tabular-nums">
+              ×{idxRatio.toFixed(2)} / год · +{idxPct.toFixed(1)}%
+            </span>
+          </div>
+          <div className="grid grid-cols-4 gap-3">
+            {indexProjection.map((p) => {
+              const delta = ((p.tariff / indexProjection[0].tariff) - 1) * 100;
+              const isNow = p.year === 0;
+              return (
+                <div key={p.year} className={`rounded-xl p-3 border ${isNow ? "border-primary/30 bg-primary/5" : "border-border/60 bg-muted/30"}`}>
+                  <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">
+                    {isNow ? "Текущий" : `+${p.year} год${p.year > 1 ? "а" : ""}`}
+                  </p>
+                  <p className="text-lg font-bold tabular-nums leading-tight">{fmt(p.tariff)}</p>
+                  <p className="text-[10px] text-muted-foreground">
+                    р/м²{!isNow && <span className="text-primary font-medium"> · +{delta.toFixed(1)}%</span>}
+                  </p>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Main table */}
       <div className="bg-card border border-border/60 rounded-2xl overflow-hidden shadow-sm">

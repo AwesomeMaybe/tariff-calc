@@ -36,9 +36,17 @@ export function saveObjects(objects: SavedObject[]): void {
   localStorage.setItem(KEY, JSON.stringify(objects));
 }
 
+function generateId(): string {
+  if (typeof crypto !== "undefined" && crypto.randomUUID) return crypto.randomUUID();
+  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
+    const r = Math.random() * 16 | 0;
+    return (c === "x" ? r : (r & 0x3 | 0x8)).toString(16);
+  });
+}
+
 export function createObject(name: string, params: BuildingParams, sections: CostSection[]): SavedObject {
   return {
-    id: crypto.randomUUID(),
+    id: generateId(),
     name,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),

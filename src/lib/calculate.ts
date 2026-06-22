@@ -29,7 +29,15 @@ export function calculate(params: BuildingParams, sections: CostSection[]): Calc
   const grandTariffBase = area > 0 ? grandTotalMonthly / area : 0;
   const grandTariffFinal = grandTariffBase * markup;
 
-  return { totalArea: area, results, grandTotalMonthly, grandTariffBase, grandTariffFinal };
+  // Индексация: тариф растёт на indexationCoef ежегодно (компаундинг).
+  // ?? 1 — защитный дефолт для старых сохранённых объектов без поля.
+  const idx = params.indexationCoef ?? 1;
+  const indexProjection = [0, 1, 2, 3].map((year) => ({
+    year,
+    tariff: grandTariffFinal * Math.pow(idx, year),
+  }));
+
+  return { totalArea: area, results, grandTotalMonthly, grandTariffBase, grandTariffFinal, indexProjection };
 }
 
 export function totalElevators(p: BuildingParams): number {

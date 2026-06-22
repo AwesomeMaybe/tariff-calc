@@ -1,11 +1,11 @@
 "use client";
 import { useState, useMemo, useEffect, useRef } from "react";
 import {
-  Building2, Settings2, BarChart3, Calculator,
+  Building2, Settings2, BarChart3,
   Plus, Trash2, ChevronRight, FolderOpen, Save, Pencil, Check, X,
-  Layers, TrendingUp, AreaChart,
 } from "lucide-react";
 import { BuildingForm } from "@/components/BuildingForm";
+import { BuildingPassport } from "@/components/BuildingPassport";
 import { SectionsEditor } from "@/components/SectionsEditor";
 import { TariffResults } from "@/components/TariffResults";
 import { fmt, fmtRub, totalArea as calcArea, sectionMonthly, calculate, totalEntrances, totalElevators, floorRange } from "@/lib/calculate";
@@ -15,6 +15,7 @@ import {
   type SavedObject,
 } from "@/lib/storage";
 import type { BuildingParams, CostSection } from "@/types/tariff";
+import { SECTION_PALETTE } from "@/lib/colors";
 
 const DEFAULT_PARAMS: BuildingParams = {
   areaResidential: 68051.2,
@@ -22,6 +23,9 @@ const DEFAULT_PARAMS: BuildingParams = {
   areaStorage: 566.63,
   areaParkingSpots: 6350.67,
   apartments: 1412,
+  nonResidentialUnits: 0,
+  storageUnits: 0,
+  parkingSpots: 0,
   sectionGroups: [{ count: 2, floors: 25 }, { count: 1, floors: 17 }],
   trashRooms: 3,
   elevatorGroups: [{ count: 8, floors: 25 }, { count: 4, floors: 17 }],
@@ -54,6 +58,7 @@ const DEFAULT_PARAMS: BuildingParams = {
   courtFountain: false,
   profitCoef: 1.1,
   vatCoef: 1.22,
+  indexationCoef: 1.05,
 };
 
 type Tab = "params" | "costs" | "results";
@@ -89,7 +94,51 @@ function useAggregates(objects: SavedObject[]) {
   }, [objects]);
 }
 
+/* Растягиваемая панель: drag по разделителю, clamp, сохранение ширины */
+function useResizable(key: string, initial: number, min: number, max: number, side: "left" | "right") {
+  const [w, setW] = useState(initial);
+  useEffect(() => {
+    const s = localStorage.getItem(key);
+    if (s) setW(Math.min(max, Math.max(min, parseFloat(s) || initial)));
+  }, [key, initial, min, max]);
+
+  const onMouseDown = (e: React.MouseEvent) => {
+    e.preventDefault();
+    const startX = e.clientX;
+    const startW = w;
+    const move = (ev: MouseEvent) => {
+      const dx = ev.clientX - startX;
+      const next = side === "left" ? startW + dx : startW - dx;
+      setW(Math.min(max, Math.max(min, next)));
+    };
+    const up = () => {
+      window.removeEventListener("mousemove", move);
+      window.removeEventListener("mouseup", up);
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
+      setW((cur) => { localStorage.setItem(key, String(cur)); return cur; });
+    };
+    window.addEventListener("mousemove", move);
+    window.addEventListener("mouseup", up);
+    document.body.style.cursor = "col-resize";
+    document.body.style.userSelect = "none";
+  };
+  return { w, onMouseDown };
+}
+
+function Resizer({ onMouseDown }: { onMouseDown: (e: React.MouseEvent) => void }) {
+  return (
+    <div
+      onMouseDown={onMouseDown}
+      className="w-1 flex-shrink-0 cursor-col-resize bg-border/40 hover:bg-primary/60 active:bg-primary transition-colors"
+      title="Потяните, чтобы изменить ширину"
+    />
+  );
+}
+
 export default function TariffPage() {
+  const left  = useResizable("ui.leftW", 224, 180, 480, "left");
+  const right = useResizable("ui.rightW", 208, 170, 480, "right");
   const [objects, setObjects]   = useState<SavedObject[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [params, setParams]     = useState<BuildingParams>(DEFAULT_PARAMS);
@@ -203,19 +252,15 @@ export default function TariffPage() {
 
       {/* ───── Left Sidebar ───── */}
       <aside
-        className="w-56 flex-shrink-0 flex flex-col h-full overflow-hidden"
-        style={{ background: "hsl(var(--sidebar-bg))" }}
+        className="flex-shrink-0 flex flex-col h-full overflow-hidden"
+        style={{ width: left.w, background: "hsl(var(--sidebar-bg))" }}
       >
         {/* Logo */}
         <div className="px-4 py-5 border-b border-white/8">
-          <div className="flex items-center gap-2.5">
-            <div className="p-2 rounded-xl grad-blue shadow-lg">
-              <Calculator className="h-4 w-4 text-white" />
-            </div>
-            <div>
-              <p className="text-white font-bold text-sm leading-tight">МР ГРУПП</p>
-              <p className="text-[10px]" style={{ color: "hsl(var(--sidebar-fg))" }}>Тарифный калькулятор</p>
-            </div>
+          <div className="flex items-center gap-3">
+            <img src="/mr-logo.png" alt="MR Group" className="h-7 w-auto flex-shrink-0" />
+            <span className="w-px h-7 bg-white/25 flex-shrink-0" />
+            <p className="text-white font-semibold text-[17px] leading-tight tracking-tight">Тарифный калькулятор</p>
           </div>
         </div>
 
@@ -242,9 +287,9 @@ export default function TariffPage() {
                 onChange={(e) => setNewName(e.target.value)}
                 onKeyDown={(e) => { if (e.key === "Enter") handleCreate(); if (e.key === "Escape") setShowNew(false); }}
                 placeholder="Название объекта"
-                className="flex-1 h-7 rounded-lg px-2.5 text-[12px] bg-white/10 text-white placeholder:text-white/30 border border-white/10 focus:outline-none focus:border-blue-400"
+                className="flex-1 h-7 rounded-lg px-2.5 text-[12px] bg-white/10 text-white placeholder:text-white/30 border border-white/10 focus:outline-none focus:border-primary"
               />
-              <button onClick={handleCreate} className="h-7 w-7 rounded-lg bg-blue-600 hover:bg-blue-500 flex items-center justify-center flex-shrink-0">
+              <button onClick={handleCreate} className="h-7 w-7 rounded-lg bg-primary hover:opacity-90 flex items-center justify-center flex-shrink-0">
                 <Check className="h-3.5 w-3.5 text-white" />
               </button>
             </div>
@@ -263,7 +308,7 @@ export default function TariffPage() {
                 return (
                   <div
                     key={obj.id}
-                    className={`group relative rounded-xl px-3 py-2.5 cursor-pointer transition-all ${isActive ? "bg-blue-600 shadow-md" : "hover:bg-white/7"}`}
+                    className={`group relative rounded-xl px-3 py-2.5 cursor-pointer transition-all ${isActive ? "bg-primary shadow-md" : "hover:bg-white/7"}`}
                     onClick={() => handleSelect(obj)}
                   >
                     {editingId === obj.id ? (
@@ -282,7 +327,7 @@ export default function TariffPage() {
                         <p className={`text-[13px] font-medium leading-tight truncate pr-10 ${isActive ? "text-white" : "text-white/80"}`}>
                           {obj.name}
                         </p>
-                        <p className={`text-[10px] mt-0.5 ${isActive ? "text-blue-200/70" : "text-white/30"}`}>
+                        <p className={`text-[10px] mt-0.5 ${isActive ? "text-violet-200/80" : "text-white/30"}`}>
                           {formatDate(obj.updatedAt)}
                         </p>
                         <div className={`absolute right-2 top-1/2 -translate-y-1/2 flex gap-0.5 ${isActive ? "opacity-100" : "opacity-0 group-hover:opacity-100"} transition-opacity`}>
@@ -332,6 +377,8 @@ export default function TariffPage() {
         )}
       </aside>
 
+      <Resizer onMouseDown={left.onMouseDown} />
+
       {/* ───── Main content ───── */}
       <main className="flex-1 overflow-y-auto min-w-0">
         {/* Topbar */}
@@ -373,7 +420,9 @@ export default function TariffPage() {
 
       {/* ───── Right panel: nav + current object ───── */}
       {activeId && activeObj && (
-        <aside className="w-52 flex-shrink-0 border-l border-border/60 bg-card overflow-y-auto">
+        <>
+        <Resizer onMouseDown={right.onMouseDown} />
+        <aside className="flex-shrink-0 border-l border-border/60 bg-card overflow-y-auto" style={{ width: right.w }}>
           {/* Object header */}
           <div className="px-4 pt-4 pb-3 border-b border-border/50">
             <div className="flex items-center gap-2 mb-0.5">
@@ -451,6 +500,7 @@ export default function TariffPage() {
             ))}
           </div>
         </aside>
+        </>
       )}
     </div>
   );
@@ -460,38 +510,40 @@ export default function TariffPage() {
 function ParamsView({ params, onChange }: { params: BuildingParams; onChange: (p: BuildingParams) => void }) {
   const area = calcArea(params);
   return (
-    <div className="fade-in">
-      <div className="grad-hero px-8 pt-8 pb-7 relative overflow-hidden">
-        <div className="absolute inset-0 opacity-10" style={{ backgroundImage: "radial-gradient(circle at 70% 50%, #3b82f6 0%, transparent 60%)" }} />
-        <div className="relative">
-          <div className="flex items-center gap-2 mb-3">
-            <div className="p-1.5 rounded-lg bg-white/10"><Building2 className="h-4 w-4 text-white" /></div>
-            <span className="text-blue-300 text-xs font-semibold uppercase tracking-widest">ТЭП</span>
-          </div>
-          <h1 className="text-2xl font-bold text-white mb-1">Технико-экономические показатели</h1>
-          <p className="text-blue-200/70 text-sm">Параметры объекта управляющей компании</p>
-        </div>
-      </div>
+    <div className="fade-in pl-5 pr-6 pt-5 pb-10">
+      <div className="flex gap-6 items-start">
 
-      <div className="px-8 mt-6 mb-6">
-        <div className="grid grid-cols-5 gap-3">
-          {[
-            { label: "Жилые",       value: fmt(params.areaResidential, 1),    unit: "м²", g: "grad-blue"    },
-            { label: "Нежилые",     value: fmt(params.areaNonResidential, 1), unit: "м²", g: "grad-indigo"  },
-            { label: "Кладовые",    value: fmt(params.areaStorage, 1),        unit: "м²", g: "grad-violet"  },
-            { label: "Машиноместа", value: fmt(params.areaParkingSpots, 1),   unit: "м²", g: "grad-cyan"    },
-            { label: "Итого",       value: fmt(area, 1),                      unit: "м²", g: "grad-emerald" },
-          ].map((c) => (
-            <div key={c.label} className="glass rounded-2xl p-3.5 shadow-md">
-              <div className={`inline-block w-2 h-2 rounded-full ${c.g} mb-2`} />
-              <p className="text-lg font-bold tabular-nums">{c.value}</p>
-              <p className="text-[10px] text-muted-foreground">{c.unit} · {c.label}</p>
-            </div>
-          ))}
+        {/* левая колонка — заголовок, KPI, форма */}
+        <div className="flex-1 min-w-0">
+          <div className="flex items-baseline gap-3 mb-4">
+            <h1 className="text-lg font-bold tracking-tight">Технико-экономические показатели</h1>
+            <span className="text-xs text-muted-foreground">параметры объекта</span>
+          </div>
+
+          <div className="rounded-2xl bg-card border border-border/70 shadow-sm grid grid-cols-5 divide-x divide-border/60 mb-4">
+            {[
+              { label: "Жилые",       value: fmt(params.areaResidential, 1)    },
+              { label: "Нежилые",     value: fmt(params.areaNonResidential, 1) },
+              { label: "Кладовые",    value: fmt(params.areaStorage, 1)        },
+              { label: "Машиноместа", value: fmt(params.areaParkingSpots, 1)   },
+              { label: "Итого",       value: fmt(area, 1), total: true         },
+            ].map((c) => (
+              <div key={c.label} className="px-3.5 py-3">
+                <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-0.5">{c.label}</p>
+                <p className={`text-sm font-bold tabular-nums leading-tight ${c.total ? "text-primary" : ""}`}>{c.value}</p>
+                <p className="text-[10px] text-muted-foreground/70">м²</p>
+              </div>
+            ))}
+          </div>
+
+          <BuildingForm params={params} onChange={onChange} />
         </div>
-      </div>
-      <div className="px-8 pb-10">
-        <BuildingForm params={params} onChange={onChange} />
+
+        {/* правая колонка — живая модель МКД */}
+        <div className="w-[440px] flex-shrink-0 sticky top-14 pt-10">
+          <BuildingPassport params={params} />
+        </div>
+
       </div>
     </div>
   );
@@ -503,7 +555,7 @@ function CostsView({ sections, onChange }: { sections: CostSection[]; onChange: 
   const max   = Math.max(...sections.map(sectionMonthly), 1);
   return (
     <div className="fade-in">
-      <div className="grad-hero px-8 pt-8 pb-7 relative overflow-hidden">
+      <div className="grad-hero facet-br px-8 pt-8 pb-7 relative overflow-hidden">
         <div className="absolute inset-0 opacity-10" style={{ backgroundImage: "radial-gradient(circle at 70% 50%, #8b5cf6 0%, transparent 60%)" }} />
         <div className="relative flex items-end justify-between">
           <div>
@@ -512,11 +564,11 @@ function CostsView({ sections, onChange }: { sections: CostSection[]; onChange: 
               <span className="text-violet-300 text-xs font-semibold uppercase tracking-widest">Затраты</span>
             </div>
             <h1 className="text-2xl font-bold text-white mb-1">Расходы по разделам</h1>
-            <p className="text-blue-200/70 text-sm">Укажите ежемесячные затраты по каждому разделу</p>
+            <p className="text-violet-200/70 text-sm">Укажите ежемесячные затраты по каждому разделу</p>
           </div>
           <div className="text-right">
             <p className="text-3xl font-bold text-white tabular-nums">{fmtRub(total)}</p>
-            <p className="text-blue-200/60 text-sm">суммарно в месяц</p>
+            <p className="text-violet-200/60 text-sm">суммарно в месяц</p>
           </div>
         </div>
       </div>
@@ -528,8 +580,7 @@ function CostsView({ sections, onChange }: { sections: CostSection[]; onChange: 
             {sections.map((sec, i) => {
               const pct = (sectionMonthly(sec) / (total || 1)) * 100;
               if (pct < 0.5) return null;
-              const colors = ["#3b82f6","#6366f1","#8b5cf6","#a855f7","#f43f5e","#f97316","#f59e0b","#84cc16","#22c55e","#10b981","#14b8a6","#06b6d4","#0ea5e9","#ec4899","#d946ef","#ef4444","#64748b","#78716c","#4338ca"];
-              return <div key={sec.id} style={{ width: `${pct}%`, background: colors[i % colors.length] }} title={`${sec.label}: ${fmtRub(sectionMonthly(sec))}`} />;
+              return <div key={sec.id} style={{ width: `${pct}%`, background: SECTION_PALETTE[i % SECTION_PALETTE.length] }} title={`${sec.label}: ${fmtRub(sectionMonthly(sec))}`} />;
             })}
           </div>
           <div className="flex justify-between mt-1.5 text-[10px] text-muted-foreground">
@@ -549,22 +600,22 @@ function CostsView({ sections, onChange }: { sections: CostSection[]; onChange: 
 function ResultsView({ output, params }: { output: ReturnType<typeof calculate>; params: BuildingParams }) {
   return (
     <div className="fade-in">
-      <div className="grad-hero px-8 pt-8 pb-7 relative overflow-hidden">
-        <div className="absolute inset-0 opacity-10" style={{ backgroundImage: "radial-gradient(circle at 70% 50%, #10b981 0%, transparent 60%)" }} />
+      <div className="grad-hero facet-br px-8 pt-8 pb-7 relative overflow-hidden">
+        <div className="absolute inset-0 opacity-10" style={{ backgroundImage: "radial-gradient(circle at 70% 50%, #a78bfa 0%, transparent 60%)" }} />
         <div className="relative flex items-end justify-between">
           <div>
             <div className="flex items-center gap-2 mb-3">
               <div className="p-1.5 rounded-lg bg-white/10"><BarChart3 className="h-4 w-4 text-white" /></div>
-              <span className="text-emerald-300 text-xs font-semibold uppercase tracking-widest">Результат</span>
+              <span className="text-violet-300 text-xs font-semibold uppercase tracking-widest">Результат</span>
             </div>
             <h1 className="text-2xl font-bold text-white mb-1">Тарифная таблица</h1>
-            <p className="text-blue-200/70 text-sm">
+            <p className="text-violet-200/70 text-sm">
               Прибыль {params.profitCoef}× · НДС {params.vatCoef}× · Множитель {(params.profitCoef * params.vatCoef).toFixed(3)}×
             </p>
           </div>
           <div className="text-right">
             <p className="text-4xl font-bold text-white tabular-nums">{fmt(output.grandTariffFinal)}</p>
-            <p className="text-blue-200/60 text-sm">р/м² · итоговый тариф</p>
+            <p className="text-violet-200/60 text-sm">р/м² · итоговый тариф</p>
           </div>
         </div>
       </div>

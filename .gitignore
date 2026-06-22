@@ -16,3 +16,13 @@ tsconfig.tsbuildinfo
 # OS
 .DS_Store
 Thumbs.db
+
+# logs / temp
+*.log
+dev.log
+
+# скрины и отчёты (не часть проекта)
+shot-*.png
+*.xlsx
+_*.png
+_*.mjs

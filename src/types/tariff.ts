@@ -17,6 +17,9 @@ export interface BuildingParams {
 
   // Основные
   apartments: number;
+  nonResidentialUnits: number; // кол-во нежилых помещений
+  storageUnits: number;        // кол-во кладовых
+  parkingSpots: number;        // кол-во машиномест
   sectionGroups: SectionGroup[];
   trashRooms: number;       // мусорокамеры
 
@@ -69,6 +72,7 @@ export interface BuildingParams {
   // Коэффициенты
   profitCoef: number;
   vatCoef: number;
+  indexationCoef: number;   // годовая индексация тарифа, напр. 1.05 = +5%/год
 }
 
 export interface SectionCostItem {
@@ -97,4 +101,5 @@ export interface CalcOutput {
   grandTotalMonthly: number;
   grandTariffBase: number;
   grandTariffFinal: number;
+  indexProjection: { year: number; tariff: number }[]; // проекция тарифа по годам
 }
