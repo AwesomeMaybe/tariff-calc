@@ -1,7 +1,7 @@
 "use client";
 import {
   Plus, X, Ruler, Building2, MoveVertical, DoorOpen, Cog,
-  CarFront, Trees, Layers, Percent,
+  CarFront, Trees, Layers, Percent, Shield, Sparkles, Award,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -158,12 +158,28 @@ export function BuildingForm({ params, onChange }: Props) {
   return (
     <div>
 
+      <Section icon={Award} title="Класс объекта">
+        <div className="field-grid">
+          <SelectField
+            label="Класс ЖК"
+            value={params.buildingClass}
+            field="buildingClass"
+            options={["Комфорт", "Бизнес", "Премиум", "Делюкс"]}
+            onChange={set}
+          />
+        </div>
+      </Section>
+
       <Section icon={Ruler} title="Площади объекта">
         <div className="field-grid">
           <NumField label="Жилые"       unit="м²" value={params.areaResidential}    field="areaResidential"    onChange={set} />
           <NumField label="Нежилые"     unit="м²" value={params.areaNonResidential} field="areaNonResidential" onChange={set} />
           <NumField label="Кладовые"    unit="м²" value={params.areaStorage}        field="areaStorage"        onChange={set} />
           <NumField label="Машиноместа" unit="м²" value={params.areaParkingSpots}   field="areaParkingSpots"   onChange={set} />
+          <NumField label="МОП"         unit="м²" value={params.areaMop}            field="areaMop"            hint="холлы, лестницы" onChange={set} />
+          <NumField label="Кровля"      unit="м²" value={params.areaRoof}           field="areaRoof"           onChange={set} />
+          <NumField label="Фасад"       unit="м²" value={params.areaFacade}         field="areaFacade"         hint="остекление" onChange={set} />
+          <NumField label="Тв. покрытия" unit="м²" value={params.areaHardSurface}   field="areaHardSurface"    hint="проезды" onChange={set} />
         </div>
       </Section>
 
@@ -213,15 +229,30 @@ export function BuildingForm({ params, onChange }: Props) {
             <NumField label="Кондиционеров" unit="шт" value={params.lobbyACCount} field="lobbyACCount" onChange={set} />
           )}
         </div>
+        <div className="field-grid mb-3">
+          <NumField label="Насосные станции" unit="шт" value={params.pumpStations} field="pumpStations" onChange={set} />
+        </div>
         <div className="bool-grid">
           <BoolField label="Станция водоподготовки"  value={params.waterTreatmentStation} field="waterTreatmentStation" onChange={set} />
           <BoolField label="Чиллер"                  value={params.hasChiller}            field="hasChiller"            onChange={set} />
           <BoolField label="Кондиционирование лобби" value={params.lobbyAC}               field="lobbyAC"               onChange={set} />
+          <BoolField label="Крышная котельная"       value={params.ownBoiler}             field="ownBoiler"             onChange={set} />
+          <BoolField label="Обогрев рамп / водостоков" value={params.heatedRamps}         field="heatedRamps"           onChange={set} />
+          <BoolField label="Снеготаялка"             value={params.snowMelt}              field="snowMelt"              onChange={set} />
+        </div>
+      </Section>
+
+      <Section icon={Shield} title="Безопасность и слаботочка">
+        <div className="field-grid">
+          <NumField label="Камеры CCTV"     unit="шт" value={params.cctvCameras}          field="cctvCameras"          onChange={set} />
+          <NumField label="Точки СКУД"      unit="шт" value={params.accessControlPoints}  field="accessControlPoints"  onChange={set} />
+          <NumField label="Приборы учёта"   unit="шт" value={params.meteringDevices}      field="meteringDevices"      hint="ОДПУ" onChange={set} />
         </div>
       </Section>
 
       <Section icon={CarFront} title="Парковка и рампы">
           <div className="field-grid">
+            <NumField label="Уровней паркинга"    unit="шт" value={params.parkingLevels}      field="parkingLevels"      onChange={set} />
             <NumField label="Рампы"               unit="шт" value={params.ramps}              field="ramps"              onChange={set} />
             <NumField label="Ворота"              unit="шт" value={params.gates}              field="gates"              onChange={set} />
             <NumField label="Шлагбаумы"           unit="шт" value={params.barriers}           field="barriers"           onChange={set} />
@@ -233,6 +264,8 @@ export function BuildingForm({ params, onChange }: Props) {
           <div className="field-grid mb-3">
             <NumField label="Площадь озеленения" unit="м²" value={params.greenArea}  field="greenArea"  onChange={set} />
             <NumField label="Резиновое покрытие" unit="м²" value={params.rubberArea} field="rubberArea" onChange={set} />
+            <NumField label="Детские площадки"   unit="шт" value={params.playgrounds} field="playgrounds" onChange={set} />
+            <NumField label="Спортплощадки"      unit="шт" value={params.sportGrounds} field="sportGrounds" onChange={set} />
             {params.mafPresent && (
               <NumField label="Кол-во МАФов" unit="шт" value={params.mafCount} field="mafCount" onChange={set} />
             )}
@@ -242,6 +275,14 @@ export function BuildingForm({ params, onChange }: Props) {
             <BoolField label="Наличие МАФов"          value={params.mafPresent}      field="mafPresent"      onChange={set} />
             <BoolField label="Система автополива"     value={params.autoIrrigation}  field="autoIrrigation"  onChange={set} />
             <BoolField label="Фонтан во дворе"        value={params.courtFountain}   field="courtFountain"   onChange={set} />
+          </div>
+        </Section>
+
+        <Section icon={Sparkles} title="Премиум-опции">
+          <div className="bool-grid">
+            <BoolField label="Бассейн / СПА"     value={params.hasPool}        field="hasPool"        onChange={set} />
+            <BoolField label="Фитнес-зал"        value={params.hasGym}         field="hasGym"         onChange={set} />
+            <BoolField label="Зимний сад"        value={params.hasWinterGarden} field="hasWinterGarden" onChange={set} />
           </div>
         </Section>
 
@@ -260,9 +301,17 @@ export function BuildingForm({ params, onChange }: Props) {
 
         <Section icon={Percent} title="Финансовые коэффициенты">
           <div className="field-grid">
-            <NumField label="Коэф. прибыли" hint="обычно 1.10" unit="×" value={params.profitCoef}     field="profitCoef"     onChange={set} />
-            <NumField label="НДС"           hint="обычно 1.22" unit="×" value={params.vatCoef}        field="vatCoef"        onChange={set} />
-            <NumField label="Индексация"    hint="год, 1.05"   unit="×" value={params.indexationCoef} field="indexationCoef" onChange={set} />
+            <NumField label="Платформа"     hint="обычно 1.10" unit="×" value={params.platformCoef} field="platformCoef" onChange={set} />
+            <NumField label="Коэф. прибыли" hint="обычно 1.10" unit="×" value={params.profitCoef} field="profitCoef" onChange={set} />
+            <NumField label="НДС"           hint="обычно 1.22" unit="×" value={params.vatCoef}    field="vatCoef"    onChange={set} />
+          </div>
+        </Section>
+
+        <Section icon={Percent} title="ФОТ — надбавки">
+          <div className="field-grid">
+            <NumField label="Страховые взносы" hint="0.302 = 30.2%" unit="×" value={params.insuranceRate} field="insuranceRate" onChange={set} />
+            <NumField label="Районный коэф."   hint="0 = нет"        unit="×" value={params.regionCoef}    field="regionCoef"    onChange={set} />
+            <NumField label="Премия"           hint="0.15 = +15%"    unit="×" value={params.premiumRate}   field="premiumRate"   onChange={set} />
           </div>
         </Section>
 

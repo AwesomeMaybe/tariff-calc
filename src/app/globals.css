@@ -130,12 +130,13 @@
 /* ── Единый формат полей ── */
 .field-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, 168px);
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
   gap: 0.75rem;
+  align-items: end;
 }
 .bool-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, 224px);
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   gap: 0.5rem;
 }
 

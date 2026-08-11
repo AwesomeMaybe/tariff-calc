@@ -9,7 +9,11 @@ import { BuildingPassport } from "@/components/BuildingPassport";
 import { SectionsEditor } from "@/components/SectionsEditor";
 import { TariffResults } from "@/components/TariffResults";
 import { fmt, fmtRub, totalArea as calcArea, sectionMonthly, calculate, totalEntrances, totalElevators, floorRange } from "@/lib/calculate";
+import { payrollFrom } from "@/lib/payroll";
+import { syncLinks } from "@/lib/cost-links";
+import type { PayrollContext } from "@/types/tariff";
 import { DEFAULT_SECTIONS } from "@/lib/default-sections";
+import { CITYBAY2_PARAMS, CITYBAY2_SECTIONS } from "@/lib/example-citybay2";
 import {
   loadObjects, saveObjects, createObject, updateObject, deleteObject, formatDate,
   type SavedObject,
@@ -18,10 +22,16 @@ import type { BuildingParams, CostSection } from "@/types/tariff";
 import { SECTION_PALETTE } from "@/lib/colors";
 
 const DEFAULT_PARAMS: BuildingParams = {
+  buildingClass: "Бизнес",
   areaResidential: 68051.2,
   areaNonResidential: 4568.73,
   areaStorage: 566.63,
   areaParkingSpots: 6350.67,
+  areaMop: 8500,
+  areaRoof: 3200,
+  areaFacade: 14000,
+  areaHardSurface: 4500,
+  parkingLevels: 2,
   apartments: 1412,
   nonResidentialUnits: 0,
   storageUnits: 0,
@@ -56,9 +66,25 @@ const DEFAULT_PARAMS: BuildingParams = {
   lobbyACCount: 0,
   autoIrrigation: false,
   courtFountain: false,
+  playgrounds: 2,
+  sportGrounds: 1,
+  cctvCameras: 80,
+  accessControlPoints: 12,
+  meteringDevices: 24,
+  heatedRamps: false,
+  pumpStations: 2,
+  ownBoiler: false,
+  snowMelt: false,
+  hasPool: false,
+  hasGym: false,
+  hasWinterGarden: false,
+  platformCoef: 1.1,
   profitCoef: 1.1,
   vatCoef: 1.22,
-  indexationCoef: 1.05,
+  indexLog: [],
+  insuranceRate: 0.302,
+  regionCoef: 0,
+  premiumRate: 0,
 };
 
 type Tab = "params" | "costs" | "results";
@@ -85,8 +111,9 @@ function useAggregates(objects: SavedObject[]) {
     let totalApts = 0;
     let totalLifts = 0;
     for (const obj of objects) {
+      const pc = payrollFrom(obj.params);
       totalArea  += calcArea(obj.params);
-      totalCosts += obj.sections.reduce((s, sec) => s + sectionMonthly(sec), 0);
+      totalCosts += obj.sections.reduce((s, sec) => s + sectionMonthly(sec, pc), 0);
       totalApts  += obj.params.apartments;
       totalLifts += obj.params.elevatorGroups.reduce((s, g) => s + g.count, 0);
     }
@@ -164,15 +191,30 @@ export default function TariffPage() {
     }, 600);
   }
 
+  const CITYBAY2_NAME = "ЖК City Bay 2";
+
   useEffect(() => {
-    const saved = loadObjects();
-    setObjects(saved);
-    if (saved.length > 0) {
-      const first = saved[0];
-      setActiveId(first.id);
-      setParams(first.params);
-      setSections(first.sections);
+    let saved = loadObjects();
+    if (saved.length === 0) {
+      const seed = createObject(CITYBAY2_NAME, CITYBAY2_PARAMS, syncLinks(CITYBAY2_PARAMS, structuredClone(CITYBAY2_SECTIONS)));
+      saved = [seed];
+      saveObjects(saved);
+    } else {
+      // City Bay 2 — демо-объект: пересобирается из актуальных данных при каждой загрузке,
+      // чтобы правки формул в example-citybay2.ts сразу были видны, без ручной очистки localStorage.
+      const demoIdx = saved.findIndex((o) => o.name === CITYBAY2_NAME);
+      if (demoIdx >= 0) {
+        saved = saved.map((o, i) =>
+          i !== demoIdx ? o : { ...o, params: CITYBAY2_PARAMS, sections: structuredClone(CITYBAY2_SECTIONS) }
+        );
+        saveObjects(saved);
+      }
     }
+    setObjects(saved);
+    const first = saved[0];
+    setActiveId(first.id);
+    setParams(first.params);
+    setSections(syncLinks(first.params, first.sections));
   }, []);
 
   const output     = useMemo(() => calculate(params, sections), [params, sections]);
@@ -180,9 +222,11 @@ export default function TariffPage() {
   const activeObj  = objects.find((o) => o.id === activeId);
 
   function handleParamsChange(p: BuildingParams) {
+    const synced = syncLinks(p, sections);
     setParams(p);
+    setSections(synced);
     setDirty(true);
-    if (activeId) scheduleAutosave(activeId, p, sections);
+    if (activeId) scheduleAutosave(activeId, p, synced);
   }
   function handleSectionsChange(s: CostSection[]) {
     setSections(s);
@@ -200,7 +244,7 @@ export default function TariffPage() {
 
   function handleCreate() {
     const name = newName.trim() || "Новый объект";
-    const obj = createObject(name, DEFAULT_PARAMS, DEFAULT_SECTIONS.map((s) => ({ ...s, items: s.items.map((i) => ({ ...i, monthly: 0 })) })));
+    const obj = createObject(name, DEFAULT_PARAMS, syncLinks(DEFAULT_PARAMS, structuredClone(DEFAULT_SECTIONS)));
     const updated = [obj, ...objects];
     setObjects(updated);
     saveObjects(updated);
@@ -217,7 +261,7 @@ export default function TariffPage() {
     if (dirty && activeId) handleSave();
     setActiveId(obj.id);
     setParams(obj.params);
-    setSections(obj.sections);
+    setSections(syncLinks(obj.params, obj.sections));
     setDirty(false);
   }
 
@@ -229,11 +273,11 @@ export default function TariffPage() {
       if (updated.length > 0) {
         setActiveId(updated[0].id);
         setParams(updated[0].params);
-        setSections(updated[0].sections);
+        setSections(syncLinks(updated[0].params, updated[0].sections));
       } else {
         setActiveId(null);
         setParams(DEFAULT_PARAMS);
-        setSections(DEFAULT_SECTIONS);
+        setSections(syncLinks(DEFAULT_PARAMS, DEFAULT_SECTIONS));
       }
       setDirty(false);
     }
@@ -414,8 +458,8 @@ export default function TariffPage() {
         )}
 
         {activeId && tab === "params"  && <ParamsView  params={params}   onChange={handleParamsChange}   />}
-        {activeId && tab === "costs"   && <CostsView   sections={sections} onChange={handleSectionsChange} />}
-        {activeId && tab === "results" && <ResultsView output={output}   params={params}                 />}
+        {activeId && tab === "costs"   && <CostsView   sections={sections} onChange={handleSectionsChange} pc={payrollFrom(params)} />}
+        {activeId && tab === "results" && <ResultsView output={output}   params={params} sections={sections} onChange={handleParamsChange} />}
       </main>
 
       {/* ───── Right panel: nav + current object ───── */}
@@ -451,7 +495,7 @@ export default function TariffPage() {
               <div>
                 <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">Затраты / мес</p>
                 <p className="text-lg font-bold tabular-nums text-primary">
-                  {fmtRub(sections.reduce((s, sec) => s + sectionMonthly(sec), 0))}
+                  {fmtRub(output.grandTotalMonthly)}
                 </p>
               </div>
               <div>
@@ -509,6 +553,7 @@ export default function TariffPage() {
 /* ─── ТЭП ─── */
 function ParamsView({ params, onChange }: { params: BuildingParams; onChange: (p: BuildingParams) => void }) {
   const area = calcArea(params);
+  const [showModel, setShowModel] = useState(false);
   return (
     <div className="fade-in pl-5 pr-6 pt-5 pb-10">
       <div className="flex gap-6 items-start">
@@ -518,6 +563,13 @@ function ParamsView({ params, onChange }: { params: BuildingParams; onChange: (p
           <div className="flex items-baseline gap-3 mb-4">
             <h1 className="text-lg font-bold tracking-tight">Технико-экономические показатели</h1>
             <span className="text-xs text-muted-foreground">параметры объекта</span>
+            <button
+              onClick={() => setShowModel((v) => !v)}
+              className="ml-auto flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium border border-border/70 text-muted-foreground hover:bg-muted transition-colors"
+            >
+              <Building2 className="h-3.5 w-3.5" />
+              {showModel ? "Скрыть модель" : "Показать модель"}
+            </button>
           </div>
 
           <div className="rounded-2xl bg-card border border-border/70 shadow-sm grid grid-cols-5 divide-x divide-border/60 mb-4">
@@ -539,10 +591,12 @@ function ParamsView({ params, onChange }: { params: BuildingParams; onChange: (p
           <BuildingForm params={params} onChange={onChange} />
         </div>
 
-        {/* правая колонка — живая модель МКД */}
-        <div className="w-[440px] flex-shrink-0 sticky top-14 pt-10">
-          <BuildingPassport params={params} />
-        </div>
+        {/* правая колонка — живая модель МКД (скрыта по умолчанию) */}
+        {showModel && (
+          <div className="w-[440px] flex-shrink-0 sticky top-14 pt-10">
+            <BuildingPassport params={params} />
+          </div>
+        )}
 
       </div>
     </div>
@@ -550,9 +604,9 @@ function ParamsView({ params, onChange }: { params: BuildingParams; onChange: (p
 }
 
 /* ─── Затраты ─── */
-function CostsView({ sections, onChange }: { sections: CostSection[]; onChange: (s: CostSection[]) => void }) {
-  const total = sections.reduce((s, sec) => s + sectionMonthly(sec), 0);
-  const max   = Math.max(...sections.map(sectionMonthly), 1);
+function CostsView({ sections, onChange, pc }: { sections: CostSection[]; onChange: (s: CostSection[]) => void; pc: PayrollContext }) {
+  const total = sections.reduce((s, sec) => s + sectionMonthly(sec, pc), 0);
+  const max   = Math.max(...sections.map((s) => sectionMonthly(s, pc)), 1);
   return (
     <div className="fade-in">
       <div className="grad-hero facet-br px-8 pt-8 pb-7 relative overflow-hidden">
@@ -578,26 +632,26 @@ function CostsView({ sections, onChange }: { sections: CostSection[]; onChange: 
           <p className="text-xs text-muted-foreground mb-2 font-medium">Структура затрат</p>
           <div className="flex h-3 rounded-full overflow-hidden gap-px">
             {sections.map((sec, i) => {
-              const pct = (sectionMonthly(sec) / (total || 1)) * 100;
+              const pct = (sectionMonthly(sec, pc) / (total || 1)) * 100;
               if (pct < 0.5) return null;
-              return <div key={sec.id} style={{ width: `${pct}%`, background: SECTION_PALETTE[i % SECTION_PALETTE.length] }} title={`${sec.label}: ${fmtRub(sectionMonthly(sec))}`} />;
+              return <div key={sec.id} style={{ width: `${pct}%`, background: SECTION_PALETTE[i % SECTION_PALETTE.length] }} title={`${sec.label}: ${fmtRub(sectionMonthly(sec, pc))}`} />;
             })}
           </div>
           <div className="flex justify-between mt-1.5 text-[10px] text-muted-foreground">
-            <span>{sections.filter(s => sectionMonthly(s) > 0).length} активных разделов</span>
+            <span>{sections.filter(s => sectionMonthly(s, pc) > 0).length} активных разделов</span>
             <span>{fmtRub(total)} / мес</span>
           </div>
         </div>
       </div>
       <div className="px-8 pb-10">
-        <SectionsEditor sections={sections} onChange={onChange} accents={SECTION_ACCENTS} max={max} />
+        <SectionsEditor sections={sections} onChange={onChange} accents={SECTION_ACCENTS} max={max} pc={pc} />
       </div>
     </div>
   );
 }
 
 /* ─── Results ─── */
-function ResultsView({ output, params }: { output: ReturnType<typeof calculate>; params: BuildingParams }) {
+function ResultsView({ output, params, sections, onChange }: { output: ReturnType<typeof calculate>; params: BuildingParams; sections: CostSection[]; onChange: (p: BuildingParams) => void }) {
   return (
     <div className="fade-in">
       <div className="grad-hero facet-br px-8 pt-8 pb-7 relative overflow-hidden">
@@ -610,7 +664,7 @@ function ResultsView({ output, params }: { output: ReturnType<typeof calculate>;
             </div>
             <h1 className="text-2xl font-bold text-white mb-1">Тарифная таблица</h1>
             <p className="text-violet-200/70 text-sm">
-              Прибыль {params.profitCoef}× · НДС {params.vatCoef}× · Множитель {(params.profitCoef * params.vatCoef).toFixed(3)}×
+              Платформа {params.platformCoef}× · Прибыль {params.profitCoef}× · НДС {params.vatCoef}× · Множитель {(params.platformCoef * params.profitCoef * params.vatCoef).toFixed(3)}×
             </p>
           </div>
           <div className="text-right">
@@ -620,7 +674,7 @@ function ResultsView({ output, params }: { output: ReturnType<typeof calculate>;
         </div>
       </div>
       <div className="px-8 mt-6 pb-10">
-        <TariffResults output={output} />
+        <TariffResults output={output} params={params} sections={sections} onChange={onChange} />
       </div>
     </div>
   );
